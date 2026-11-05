@@ -1,0 +1,44 @@
+#!/bin/bash
+# heardmd: local transcription with speaker labels, plus optional Claude Code polishing.
+# Usage: heardmd <command> [options]   (heardmd help lists the commands)
+set -euo pipefail
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+source "$(dirname "$SELF")/../env.sh"
+PY="$ROOT/.venv/bin/python"
+
+usage() {
+  cat <<'EOF'
+Usage: heardmd <command> [options]
+
+  run <recording>            full pipeline: transcribe, then polish with Claude Code
+                             (transcription is skipped if the transcript exists)
+  transcribe <recording>     transcribe only        → <name>_transcript.md
+  polish <transcript.md>     polish only            → <name>_polished.md
+  doctor                     check the installation, Hugging Face, Claude Code
+                             and private guides
+  login                      set the Hugging Face token (once)
+  help                       show this help
+
+Options of a command: heardmd <command> --help
+EOF
+}
+
+cmd="${1:-help}"
+[[ $# -gt 0 ]] && shift
+case "$cmd" in
+  transcribe)
+    # caffeinate -i keeps the Mac from idle-sleeping until the command ends.
+    exec /usr/bin/caffeinate -i "$PY" "$ROOT/src/transcribe.py" "$@" ;;
+  run|polish)
+    exec /usr/bin/caffeinate -i "$PY" "$ROOT/src/polish.py" "$cmd" "$@" ;;
+  doctor)
+    exec "$PY" "$ROOT/src/doctor.py" "$@" ;;
+  login)
+    exec "$PY" "$ROOT/src/transcribe.py" --login ;;
+  help|-h|--help)
+    usage ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage >&2
+    exit 2 ;;
+esac

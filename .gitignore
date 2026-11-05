@@ -1,0 +1,30 @@
+# Installed by install.sh (large, machine-specific)
+.venv/
+.tools/
+vendor/
+models/
+cache/
+
+# Personal: private guides, local notes, development data (contains meeting content)
+agent-guides/private/
+NOTES.local.md
+skill-dev/
+
+# Never commit transcripts or recordings
+*_transcript.md
+*_polished*.md
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.flac
+*.ogg
+*.opus
+*.aiff
+*.mp4
+*.mov
+*.mkv
+*.webm
+
+.DS_Store
+__pycache__/
