@@ -16,25 +16,68 @@
 
 ## 安裝
 
-需要：Apple Silicon 的 Mac、Xcode Command Line Tools（`xcode-select --install`）、約 2.6 GB 空間、一個 Hugging Face 帳號。
+需要：Apple Silicon 的 Mac、約 2.6 GB 空間、網路，以及一個 [Hugging Face](https://huggingface.co) 帳號（免費）。全部指令都在「終端機」App 裡執行（按 **Cmd+空白鍵**，輸入 `Terminal`，按 Enter）。
+
+以下以安裝到 `~/tools/heardmd` 為例。要裝在別處，把每一步的 `~/tools/heardmd` 換成你的路徑。
+
+### 步驟 1：安裝 Xcode Command Line Tools
 
 ```bash
-git clone <this repo> ~/tools/heardmd
-cd ~/tools/heardmd
-./install.sh
+xcode-select --install
 ```
 
-`install.sh` 會依序安裝 uv、Python 3.12 和套件，下載並編譯 whisper.cpp，下載 Whisper 模型（1.6 GB，下載前會先問你），最後執行 `heardmd doctor` 檢查。可以隨時重新執行，已完成的步驟會跳過。
+跳出視窗就按「安裝」，等它跑完。如果出現 `already installed`，代表已經裝好，直接到下一步。
 
-### 設定 Hugging Face（必要，只要做一次）
+### 步驟 2：下載 heardmd
+
+```bash
+git clone https://github.com/hi-noah/heardmd.git ~/tools/heardmd
+```
+
+### 步驟 3：執行安裝程式
+
+```bash
+cd ~/tools/heardmd && ./install.sh
+```
+
+會依序安裝 uv、Python 3.12 和套件、下載並編譯 whisper.cpp、下載 Whisper 模型，最後執行 `heardmd doctor` 檢查。總共約 15～30 分鐘，看網速而定。
+
+- 下載 1.6 GB 的模型前會問你，輸入 `y` 再按 Enter。
+- 最後檢查時，Hugging Face 那一項會是 ❌（`No token set`），這是正常的：還沒做步驟 4。
+- 中途失敗或中斷的話，再執行一次就好，已完成的步驟會跳過。
+
+### 步驟 4：設定 Hugging Face（講者分離需要，只要做一次）
 
 講者分離模型放在 Hugging Face 上，要先同意使用條款才能下載。
 
-1. 登入 [Hugging Face](https://huggingface.co)，到 [segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0) 和 [speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) 兩個頁面，按同意使用條款。
-2. 到 [Access Tokens](https://huggingface.co/settings/tokens) 按 **Create new token**，類型選 **Read**，複製那串 `hf_` 開頭的 token（只會顯示一次）。
-3. 執行 `bin/heardmd login`，貼上 token（畫面不會顯示），按 Enter。token 只存在 `cache/hf/token`，權限設為只有你自己能讀。
+1. 登入 [Hugging Face](https://huggingface.co)。
+2. 打開 [segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)，填寫並按同意使用條款。
+3. 打開 [speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)，同樣按同意。
+4. 到 [Access Tokens](https://huggingface.co/settings/tokens) 按 **Create new token**，類型選 **Read**，名稱隨意，按 **Create token**。
+5. 複製那串 `hf_` 開頭的 token（只會顯示這一次）。
+6. 回到終端機執行下面這行，貼上 token（畫面不會顯示，這是正常的），按 Enter：
 
-### 設定 Claude Code（只有潤飾需要）
+```bash
+~/tools/heardmd/bin/heardmd login
+```
+
+token 只存在 `cache/hf/token`，權限設為只有你自己能讀。
+
+### 步驟 5：讓 `heardmd` 指令能直接用
+
+到這裡為止，指令都要打完整路徑 `~/tools/heardmd/bin/heardmd`。直接打 `heardmd` 會出現 `zsh: command not found: heardmd`，因為 heardmd 不會自己修改你的 shell 設定檔（見[移除](#移除)）。
+
+要直接打 `heardmd`，在 `~/.zshrc` 加一個 alias。`install.sh` 最後會印出適合你資料夾的那一行；裝在 `~/tools/heardmd` 的話就是：
+
+```bash
+echo 'alias heardmd="$HOME/tools/heardmd/bin/heardmd"' >> ~/.zshrc
+```
+
+**只要執行一次**，執行兩次會加兩行。接著關掉終端機視窗再開一個新的，設定才會生效。
+
+> 本文件之後的指令都寫成 `heardmd …`。沒加 alias 的話，請改打 `~/tools/heardmd/bin/heardmd …`。
+
+### 步驟 6：設定 Claude Code（只有潤飾需要；只要逐字稿可以跳過）
 
 1. 依 [Claude Code 官網](https://claude.com/claude-code)的說明安裝。
 2. 在終端機執行一次 `claude`，依畫面登入你的 Claude 帳號（訂閱帳號或 API key 都可以）。
@@ -42,18 +85,27 @@ cd ~/tools/heardmd
 
 潤飾的用量算在你自己的帳號上：訂閱帳號會消耗用量額度，API key 則按用量計費。
 
-### 確認一切正常
+### 步驟 7：建立私人 guide（只有潤飾需要）
 
 ```bash
-bin/heardmd doctor
+mkdir -p ~/tools/heardmd/agent-guides/private
+cp ~/tools/heardmd/agent-guides/private.example.md ~/tools/heardmd/agent-guides/private/weekly.md
 ```
 
-會逐項檢查 whisper.cpp、模型、Python 套件、Hugging Face 權限、Claude Code 登入狀態和私人 guide，並告訴你哪裡要修。不花 Claude 用量，也不會下載任何東西。
+再用文字編輯器打開 `agent-guides/private/weekly.md`，照檔案裡的說明填寫。內容和用途見 [Agent guide](#agent-guide通用和私人)。
 
-想直接打 `heardmd` 就能用，可以在 `~/.zshrc` 加一行（移除時記得刪掉）：
+### 步驟 8：確認一切正常
 
 ```bash
-alias heardmd="$HOME/tools/heardmd/bin/heardmd"
+heardmd doctor
+```
+
+會逐項檢查 whisper.cpp、模型、Python 套件、Hugging Face 權限、Claude Code 登入狀態和私人 guide，並告訴你哪裡要修。不花 Claude 用量，也不會下載任何東西。最後一行出現 `All good.` 就完成了；跳過步驟 6、7 的話，那兩項會顯示警告，不影響轉錄。
+
+想先試跑一小段，可以只轉錄錄音的前 2 分鐘：
+
+```bash
+heardmd transcribe ~/recordings/test.m4a --duration 120
 ```
 
 程式的訊息和說明是英文的。
@@ -69,6 +121,8 @@ heardmd polish <逐字稿.md>       只潤飾      → <原檔名>_polished.md
 heardmd doctor                   檢查安裝與設定
 heardmd login                    設定 Hugging Face token
 ```
+
+沒加 alias（安裝步驟 5）的話，`heardmd` 要改打完整路徑，例如 `~/tools/heardmd/bin/heardmd run <錄音>`。
 
 大部分時候只要用 `heardmd run`。`transcribe` 適合只要原始逐字稿的時候（不需要 Claude 帳號）；`polish` 用來重新潤飾已有的逐字稿，例如換一份 guide 或換一個推理強度。
 
@@ -190,9 +244,17 @@ language: zh                                 # 錄音語言：zh 或 en
 
 ### 對 pyannote 的一處調整
 
-pyannote 會把「至少有 12 個聲紋特徵」的群當成一位講者，這個門檻不隨錄音長度變化，而且它也會替極短的聲音片段算聲紋。實測 88 分鐘的會議（7834 個特徵）中，有 50 個來自這種極短片段，它們彼此相似、和兩位講者都不像，於是自成一群「講者」。指定 2 人時，pyannote 只好把兩位真正的講者併成一人。
+pyannote 也會替極短的聲音片段（不到一秒）算聲紋。這些片段彼此相似、和每位講者都不像，常常自成一群「講者」。分出來的講者比指定的人數多時，pyannote 會合併**最接近的兩群**，而那通常是兩位真正的講者。實測：
 
-heardmd 把門檻改成「至少佔全部特徵的 1%」（短錄音仍維持 12）。代價是：長錄音中講話時間不到全場約 1% 的人，會被併到別的講者。
+- 88 分鐘的會議（7834 個聲紋特徵）：50 個來自極短片段的特徵自成一群，兩位講者被併成一人。
+- 122 分鐘的會議（11003 個特徵）：111 個極短片段的特徵（佔 1.01%）自成一群，兩位講者同樣被併成一人：一位幾乎講了整場，另一位只有 51 秒的「嗯」「對」。
+
+heardmd 做了兩處調整：
+
+1. 一群要「至少佔全部特徵的 1%」才算一位講者（pyannote 原本固定是 12 個，不隨錄音長度變化；短錄音仍維持 12）。
+2. 調整後講者仍然比指定的多時，保留最大的幾群，把最小的併給最接近的講者，不去合併真正的講者。講者比指定的少時，照 pyannote 原本的做法。
+
+代價是：長錄音中講話時間不到全場約 1% 的人，會被併到別的講者。
 
 ### 已知限制
 
@@ -240,21 +302,23 @@ pyproject.toml, uv.lock
 
 ## 移除
 
+1. 刪除整個資料夾：
+
 ```bash
 rm -rf ~/tools/heardmd
 ```
 
+2. 如果做過安裝的步驟 5，刪掉 `~/.zshrc` 裡的 alias：
+
+```bash
+sed -i '' '/^alias heardmd=/d' ~/.zshrc
+```
+
+3. （選擇性）到 Hugging Face 的 [Access Tokens](https://huggingface.co/settings/tokens) 刪除 token。pyannote 模型的使用條款同意不需處理；要取消，到 [Gated repos](https://huggingface.co/settings/gated-repos)。
+
 逐字稿和潤飾版放在錄音旁或你設定的 `output_dir`，不會被刪除。
 
-資料夾外可能留下的東西：
-
-| 位置 | 怎麼移除 |
-|---|---|
-| Hugging Face 網站上的 token | 到 [Access Tokens](https://huggingface.co/settings/tokens) 刪除 |
-| pyannote 模型的使用條款同意 | 不需處理；要取消，到 [Gated repos](https://huggingface.co/settings/gated-repos) |
-| 自己加在 `~/.zshrc` 的 alias | 刪掉那一行 |
-
-heardmd 不會安裝 Homebrew 套件或系統 Python 套件，也不會修改 shell 設定檔。
+heardmd 不會安裝 Homebrew 套件或系統 Python 套件，也**不會修改 shell 設定檔**。這是刻意的：程式、模型和快取全部放在同一個資料夾，刪掉資料夾就移除乾淨。alias 是你自己加的那一行，所以第 2 步要自己刪。
 
 ---
 

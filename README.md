@@ -16,25 +16,68 @@ Turn meeting recordings into **markdown transcripts** with **speaker labels** an
 
 ## Install
 
-You need: a Mac with Apple Silicon, the Xcode Command Line Tools (`xcode-select --install`), about 2.6 GB of disk space, and a Hugging Face account.
+You need: a Mac with Apple Silicon, about 2.6 GB of disk space, an internet connection, and a (free) [Hugging Face](https://huggingface.co) account. Run every command in the Terminal app (press **Cmd+Space**, type `Terminal`, press Enter).
+
+These steps install into `~/tools/heardmd`. To install elsewhere, replace `~/tools/heardmd` in every step with your path.
+
+### Step 1: Install the Xcode Command Line Tools
 
 ```bash
-git clone <this repo> ~/tools/heardmd
-cd ~/tools/heardmd
-./install.sh
+xcode-select --install
 ```
 
-`install.sh` installs uv, Python 3.12 and the packages, downloads and builds whisper.cpp, downloads the Whisper model (1.6 GB; it asks first), and finally runs `heardmd doctor`. Run it again any time; finished steps are skipped.
+If a window opens, click Install and wait for it to finish. If it says `already installed`, go on to the next step.
 
-### Set up Hugging Face (required, once)
+### Step 2: Download heardmd
+
+```bash
+git clone https://github.com/hi-noah/heardmd.git ~/tools/heardmd
+```
+
+### Step 3: Run the installer
+
+```bash
+cd ~/tools/heardmd && ./install.sh
+```
+
+It installs uv, Python 3.12 and the packages, downloads and builds whisper.cpp, downloads the Whisper model, and finally runs `heardmd doctor`. It takes about 15–30 minutes, depending on your connection.
+
+- Before downloading the 1.6 GB model it asks you; type `y` and press Enter.
+- In the final check, the Hugging Face line shows ❌ (`No token set`). That is expected: step 4 is next.
+- If it fails or is interrupted, run it again; finished steps are skipped.
+
+### Step 4: Set up Hugging Face (needed for speaker labels, once)
 
 The speaker identification models are hosted on Hugging Face and need their terms accepted before download.
 
-1. Log in to [Hugging Face](https://huggingface.co) and accept the terms on the [segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0) and [speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) pages.
-2. Under [Access Tokens](https://huggingface.co/settings/tokens), click **Create new token**, choose type **Read**, and copy the token that starts with `hf_` (it is shown only once).
-3. Run `bin/heardmd login`, paste the token (it is not displayed) and press Enter. The token is stored only in `cache/hf/token`, readable only by you.
+1. Log in to [Hugging Face](https://huggingface.co).
+2. Open [segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0) and accept the terms.
+3. Open [speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) and accept the terms.
+4. Under [Access Tokens](https://huggingface.co/settings/tokens), click **Create new token**, choose type **Read**, give it any name and click **Create token**.
+5. Copy the token that starts with `hf_` (it is shown only this once).
+6. Back in Terminal, run this, paste the token (it is not displayed; that is normal) and press Enter:
 
-### Set up Claude Code (only for polishing)
+```bash
+~/tools/heardmd/bin/heardmd login
+```
+
+The token is stored only in `cache/hf/token`, readable only by you.
+
+### Step 5: Make the `heardmd` command work
+
+So far every command uses the full path, `~/tools/heardmd/bin/heardmd`. Typing just `heardmd` gives `zsh: command not found: heardmd`, because heardmd never edits your shell configuration (see [Uninstall](#uninstall)).
+
+To type just `heardmd`, add an alias to `~/.zshrc`. `install.sh` prints the right line for your folder at the end; for `~/tools/heardmd` it is:
+
+```bash
+echo 'alias heardmd="$HOME/tools/heardmd/bin/heardmd"' >> ~/.zshrc
+```
+
+**Run it only once**; running it twice adds the line twice. Then close the Terminal window and open a new one for the alias to take effect.
+
+> The rest of this README writes commands as `heardmd …`. Without the alias, type `~/tools/heardmd/bin/heardmd …` instead.
+
+### Step 6: Set up Claude Code (only for polishing; skip it if you only want transcripts)
 
 1. Install Claude Code by following the instructions on the [Claude Code site](https://claude.com/claude-code).
 2. Run `claude` once in a terminal and log in to your Claude account (a subscription or an API key both work).
@@ -42,18 +85,27 @@ The speaker identification models are hosted on Hugging Face and need their term
 
 Polishing counts against your own account: a subscription uses your plan's usage limits; an API key is billed per use.
 
-### Check that everything works
+### Step 7: Create a private guide (only for polishing)
 
 ```bash
-bin/heardmd doctor
+mkdir -p ~/tools/heardmd/agent-guides/private
+cp ~/tools/heardmd/agent-guides/private.example.md ~/tools/heardmd/agent-guides/private/weekly.md
 ```
 
-It checks whisper.cpp, the model, the Python packages, Hugging Face access, the Claude Code login and your private guides, and tells you what to fix. It costs no Claude usage and downloads nothing.
+Then open `agent-guides/private/weekly.md` in a text editor and fill it in as the file explains. See [Agent guides](#agent-guides-general-and-private) for what goes in it.
 
-To type just `heardmd`, add an alias to `~/.zshrc` (remove it when uninstalling):
+### Step 8: Check that everything works
 
 ```bash
-alias heardmd="$HOME/tools/heardmd/bin/heardmd"
+heardmd doctor
+```
+
+It checks whisper.cpp, the model, the Python packages, Hugging Face access, the Claude Code login and your private guides, and tells you what to fix. It costs no Claude usage and downloads nothing. `All good.` on the last line means you are done; if you skipped steps 6 and 7, those lines show warnings, which do not affect transcription.
+
+For a first trial, transcribe just the first 2 minutes of a recording:
+
+```bash
+heardmd transcribe ~/recordings/test.m4a --duration 120
 ```
 
 ---
@@ -67,6 +119,8 @@ heardmd polish <transcript.md>   polish only            → <name>_polished.md
 heardmd doctor                   check the installation and setup
 heardmd login                    set the Hugging Face token
 ```
+
+Without the alias (install step 5), type the full path instead of `heardmd`, for example `~/tools/heardmd/bin/heardmd run <recording>`.
 
 Most of the time you only need `heardmd run`. `transcribe` is for when you want just the raw transcript (it needs no Claude account); `polish` re-polishes a transcript you already have, for example with another guide or effort level.
 
@@ -188,9 +242,17 @@ Yeah, so, um, we moved the billing service last week…
 
 ### A change to pyannote
 
-pyannote treats any cluster of at least 12 voice embeddings as a speaker, regardless of the recording's length, and it also computes embeddings for tiny slivers of sound. In an 88-minute meeting (7,834 embeddings), 50 came from such slivers; they resembled each other and neither real speaker, so they formed a "speaker" of their own. With 2 speakers requested, pyannote then had to merge the two real speakers into one.
+pyannote also computes voice embeddings for tiny slivers of sound (under a second). These resemble each other and no real speaker, so they often form a "speaker" of their own. When that gives more speakers than requested, pyannote merges the **two closest clusters**, which are usually the two real speakers. Measured:
 
-heardmd changes the threshold to "at least 1% of all embeddings" (short recordings keep 12). The trade-off: in a long recording, someone who speaks for less than about 1% of the time is merged into another speaker.
+- 88-minute meeting (7,834 embeddings): 50 sliver embeddings formed a cluster, and the two speakers were merged into one.
+- 122-minute meeting (11,003 embeddings): 111 sliver embeddings (1.01%) formed a cluster, and the two speakers were again merged: one label had almost the whole meeting, the other 51 seconds of "mm" and "right".
+
+heardmd makes two changes:
+
+1. A cluster needs at least 1% of all embeddings to count as a speaker (pyannote's fixed default is 12, regardless of length; short recordings keep 12).
+2. If there are still more speakers than requested, the largest clusters are kept and the smallest are reassigned to their nearest speaker, instead of merging real speakers. With fewer speakers than requested, pyannote's own method runs unchanged.
+
+The trade-off: in a long recording, someone who speaks for less than about 1% of the time is merged into another speaker.
 
 ### Known limitations
 
@@ -238,21 +300,23 @@ Created by `install.sh` (none of it is in git):
 
 ## Uninstall
 
+1. Delete the folder:
+
 ```bash
 rm -rf ~/tools/heardmd
 ```
 
+2. If you did install step 5, remove the alias from `~/.zshrc`:
+
+```bash
+sed -i '' '/^alias heardmd=/d' ~/.zshrc
+```
+
+3. (Optional) Delete the token under [Access Tokens](https://huggingface.co/settings/tokens) on Hugging Face. The accepted terms of the pyannote models need nothing; to withdraw, see [Gated repos](https://huggingface.co/settings/gated-repos).
+
 Transcripts and polished transcripts are next to the recordings or in your `output_dir`, and are not deleted.
 
-Things that may remain outside the folder:
-
-| Where | How to remove |
-|---|---|
-| Your token on the Hugging Face site | Delete it under [Access Tokens](https://huggingface.co/settings/tokens) |
-| Accepted terms of the pyannote models | Nothing to do; to withdraw, see [Gated repos](https://huggingface.co/settings/gated-repos) |
-| An alias you added to `~/.zshrc` | Delete that line |
-
-heardmd installs no Homebrew packages or system Python packages and does not change your shell configuration.
+heardmd installs no Homebrew packages or system Python packages and **does not change your shell configuration**. That is deliberate: programs, models and caches all live in one folder, so deleting the folder removes them. The alias is a line you added yourself, which is why step 2 is yours to do.
 
 ---
 

@@ -127,7 +127,7 @@ def diarize(wav, num_speakers, min_speakers, max_speakers):
 
     audio, sr = sf.read(str(wav), dtype="float32")
     file = {"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": sr}
-    _scale_min_cluster_size(pipeline)
+    _tune_clustering(pipeline)
     if min_speakers or max_speakers:
         annotation = pipeline(file, min_speakers=min_speakers, max_speakers=max_speakers)
     else:
@@ -143,27 +143,56 @@ def diarize(wav, num_speakers, min_speakers, max_speakers):
 MIN_SPEAKER_SHARE = 0.01  # a cluster needs >= 1% of the embeddings to count as a speaker
 
 
-def _scale_min_cluster_size(pipeline):
-    """Make pyannote's "is this cluster a speaker?" cut-off scale with length.
+def _tune_clustering(pipeline):
+    """Keep slivers of speech from merging two real speakers.
 
-    pyannote counts any cluster with >= 12 embeddings (min_cluster_size) as a
-    speaker, however long the recording. It also embeds every local speaker
-    that is active for even a few frames. On an 88-min meeting (7834
-    embeddings), 50 embeddings taken from such slivers (median 0.03 s of
-    activity, vs ~9-10 s for real speech) were alike and far from both voices
-    (cosine distance 1.16-1.21), so they formed a "speaker"; with
-    num_speakers=2, agglomerative clustering then had to merge the two real
-    speakers (distance 0.39) instead. Requiring 1% of the embeddings turns that
-    cluster into a small one, which pyannote reassigns to the nearest speaker.
-    Short files keep pyannote's default of 12.
+    pyannote embeds every local speaker that is active for even a few frames
+    of a 10 s chunk. Embeddings of such slivers are alike and far from every
+    real voice, so they can form a cluster of their own. When that gives more
+    clusters than the speakers requested, pyannote walks its dendrogram until
+    the count fits, which merges the two closest clusters: the real speakers.
+
+    - 88-min meeting (7834 embeddings): 50 sliver embeddings (median 0.03 s of
+      speech, vs ~9-10 s for real speech) formed a cluster; the real speakers
+      were 0.39 apart (cosine), the slivers 1.16-1.21 from both.
+    - 122-min meeting (11003 embeddings): 111 sliver embeddings (median
+      0.44 s), 1.01% of all, formed a cluster; the real speakers (5362 and
+      2172 embeddings, 0.38 apart) were merged into one label.
+
+    Two changes:
+    1. A cluster needs MIN_SPEAKER_SHARE of the embeddings to count as a
+       speaker (pyannote's fixed default is 12 however long the recording).
+       Short files keep the default of 12.
+    2. If there are still more speakers than requested, keep the largest
+       clusters and reassign the smallest ones to their nearest kept speaker,
+       instead of merging speakers. With fewer speakers than requested,
+       pyannote's own search runs unchanged.
     """
+    import numpy as np
+    from scipy.spatial.distance import cdist
+
     clustering = pipeline.clustering
     default = clustering.min_cluster_size
     original = clustering.cluster
 
     def cluster(embeddings, min_clusters, max_clusters, num_clusters=None):
         clustering.min_cluster_size = max(default, round(MIN_SPEAKER_SHARE * len(embeddings)))
-        return original(embeddings, min_clusters, max_clusters, num_clusters)
+        wanted_max = num_clusters or max_clusters
+        # Clusters at pyannote's distance threshold, small ones already reassigned.
+        labels = original(embeddings.copy(), 1, max(len(embeddings), 1), None)
+        found = labels.max() + 1
+        if found < (num_clusters or min_clusters):
+            return original(embeddings, min_clusters, max_clusters, num_clusters)
+        if found <= wanted_max:
+            return labels
+        sizes = np.bincount(labels)
+        keep = np.argsort(-sizes)[:wanted_max]
+        unit = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+        centroids = np.vstack([unit[labels == k].mean(0) for k in keep])
+        for k in set(range(found)) - set(keep):
+            centroid = unit[labels == k].mean(0, keepdims=True)
+            labels[labels == k] = keep[np.argmin(cdist(centroid, centroids, "cosine"))]
+        return np.unique(labels, return_inverse=True)[1]
 
     clustering.cluster = cluster
 

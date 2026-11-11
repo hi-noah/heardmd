@@ -90,4 +90,24 @@ where to save the output):
 then edit it as the file explains.
 MSG
 fi
+# install.sh never edits shell configuration (deleting this folder must remove
+# everything), so print the alias line for this folder instead.
+alias_line="alias heardmd=\"$ROOT/bin/heardmd\""
+existing="$(grep '^alias heardmd=' "$HOME/.zshrc" 2>/dev/null || true)"
+if [[ -n "$existing" ]]; then
+  cat <<MSG
+
+~/.zshrc already has a heardmd alias:
+$existing
+If it does not point to this folder ($ROOT), replace it with:
+  $alias_line
+MSG
+else
+  cat <<MSG
+
+To type just heardmd instead of $ROOT/bin/heardmd,
+add an alias to ~/.zshrc (this line is for this folder), then open a new terminal window:
+  echo '$alias_line' >> ~/.zshrc
+MSG
+fi
 printf '\nDone. See README.md, or run bin/heardmd help.\n'
